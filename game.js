@@ -124,6 +124,7 @@ function startMode(m){
   hold=null;canHold=true;
   lines=0;score=0;level=1;combo=-1;b2b=0;pieces=0;time=0;
   flashes=[];popups=[];lands=[];drops=[];shines=[];
+  quitHold=0; // fresh run never inherits a stale quit fill
   spawn();state='play';goPlay();
 }
 function grounded(){return collide(board,cur.m,cur.x,cur.y+1);}
@@ -252,8 +253,8 @@ function fmtTime(ms){
 
 function update(dt){
   if(state!='play')return;
-  // ponytail: ESC never pauses — holding it fills the quit bar while the run continues
-  if(keys[keybinds.pause]){quitHold+=dt;if(quitHold>=QUIT_HOLD){saveBest();goMenu();quitHold=0;return;}}
+  // ponytail: ESC/Q never pause — holding either fills the quit bar while the run continues
+  if(keys[keybinds.pause]||keys[keybinds.quit]){quitHold+=dt;if(quitHold>=QUIT_HOLD){saveBest();goMenu();quitHold=0;return;}}
   time+=dt;
   if(mode=='ultra'&&time>=MODES.ultra.time)return finish();
   if(mode=='versus'&&vs){
@@ -312,16 +313,16 @@ function mini(t,cx,cy,size,alpha=1){
 }
 function text(str,x,y,size=14,color='#cfd3e0',align='left'){
   ctx.font='700 '+size+'px "Space Grotesk",ui-monospace,monospace';
-  try{ctx.letterSpacing='1px';}catch(e){}
+  ctx.letterSpacing='1px'; // unsupported browsers keep it as a harmless expando
   ctx.fillStyle=color;ctx.textAlign=align;ctx.fillText(str,x,y);
-  try{ctx.letterSpacing='0px';}catch(e){}
+  ctx.letterSpacing='0px';
 }
 function hexA(h,a){ // ponytail: #rrggbb + alpha for the colored ghost, no color lib
-  const p=[1,3,5].map(i=>parseInt(h.substr(i,2),16));
+  const p=[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));
   return 'rgba('+p[0]+','+p[1]+','+p[2]+','+a+')';
 }
 function hexMix(a,b,t){ // ponytail: 2-hex lerp for tetr.io pastel titles, no color lib
-  const p=h=>[1,3,5].map(i=>parseInt(h.substr(i,2),16));
+  const p=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));
   const A=p(a),B=p(b);
   return '#'+A.map((v,i)=>Math.round(v+(B[i]-v)*t).toString(16).padStart(2,'0')).join('');
 }
@@ -345,7 +346,7 @@ function draw(){
   const over=clickZones.some(z=>mouseX>=z.x&&mouseX<z.x+z.w&&mouseY>=z.y&&mouseY<z.y+z.h);
   cvs.style.cursor=over?'pointer':'default';
   ctx.clearRect(0,0,cvs.width,cvs.height); // ponytail: transparent so body wallpaper photo shows
-  // ponytail: no blanket darken in play mode — board & HUD panels paint their own opaque bg, so the wallpaper reads full-screen behind them (pause/over draw their own scrim)
+  // ponytail: no blanket darken in play mode — board & HUD panels paint their own opaque bg, so the wallpaper reads full-screen behind them (over draws its own scrim)
   clickZones=[];
   if(mode=='versus'){CELL=20;BX=30;BY=40;}else{CELL=30;BX=150;BY=30;}
   if(state=='play'&&quitHold>0)drawQuitBar();else hideQuitBar(); // before the menu/config/diff early returns
@@ -425,7 +426,7 @@ function draw(){
     let sy=BY+hh+52; // bare stats under HOLD, right-aligned to the board
     function lstat(label,val,vs=26){text(label,BX-14,sy,11,'#cfd3e0','right');text(val,BX-14,sy+28,vs,'#ffffff','right');sy+=62;}
     if(mode=='sprint'){lstat('LINES',lines+'/40');lstat('TIME',fmtTime(time),20);}
-    else if(mode=='ultra'){lstat('TIME LEFT',fmtTime(Math.max(0,120000-time)),20);lstat('SCORE',''+score);}
+    else if(mode=='ultra'){lstat('TIME LEFT',fmtTime(Math.max(0,120000-time)),20);} // ponytail: SCORE already lives in the NEXT box
     else{lstat('LEVEL',''+level);lstat('LINES',mode=='zen'?''+lines:lines+'/150');lstat('TIME',fmtTime(time),20);}
   }
   // popups
@@ -789,12 +790,11 @@ addEventListener('keydown',e=>{
   if(state=='diff'){
     const i=['Digit1','Digit2','Digit3','Digit4','Digit5','Numpad1','Numpad2','Numpad3','Numpad4','Numpad5'].indexOf(e.code)%5;
     if(i>=0)startVs(i+1);
-    if(e.code=='Escape')goMenu();
+    if(e.code==keybinds.pause)goMenu();
     return;
   }
   if(state=='config'){
-    if(rebindAction&&e.code=='Escape'){rebindAction=null;}
-    else if(e.code=='Escape')goMenu();
+    if(e.code=='Escape'||e.code==keybinds.pause){if(rebindAction)rebindAction=null;else goMenu();}
     else if(rebindAction){
       keybinds[rebindAction]=e.code;
       lsSet('webtris_keys',keybinds);
@@ -804,7 +804,7 @@ addEventListener('keydown',e=>{
   }
   if(state=='over'){
     if(e.code==keybinds.retry)(mode=='versus'?startVs(vs.diff):startMode(mode));
-    if(e.code=='Escape')goMenu();
+    if(e.code==keybinds.pause)goMenu();
     return;
   }
   keys[e.code]=true;
@@ -816,11 +816,10 @@ addEventListener('keydown',e=>{
   else if(e.code==keybinds.hardDrop)hardDrop();
   else if(e.code==keybinds.hold||e.code=='ShiftLeft')doHold();
   else if(e.code==keybinds.retry)(mode=='versus'?startVs(vs.diff):startMode(mode));
-  else if(e.code==keybinds.quit){saveBest();goMenu();}
 });
 addEventListener('keyup',e=>{
   keys[e.code]=false;
-  if(e.code==keybinds.pause)quitHold=0; // release cancels the quit fill, game never paused
+  if(e.code==keybinds.pause||e.code==keybinds.quit)quitHold=0; // release cancels the quit fill, game never paused
   if(e.code==keybinds.left&&moveDir==-1){
     if(keys[keybinds.right]){moveDir=1;dasT=0;arrT=0;tryMove(1,0);}else moveDir=0;
   }
