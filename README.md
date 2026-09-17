@@ -38,8 +38,7 @@ Default controls:
 - Hard Drop: Space
 - Hold: C
 - Retry: R
-- Pause: Escape
-- Quit: Q
+- Quit: Hold escape
 
 ## Project structure
 
