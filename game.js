@@ -22,7 +22,7 @@ const quitEl=document.getElementById('quitbar'); // ponytail: full-width hold-to
 // ponytail: menu fills the window so buttons reach the real screen edge; play stays 600x660 centered
 function goMenu(){state='menu';cvs.width=innerWidth;cvs.height=innerHeight;}
 function goPlay(){cvs.width=600;cvs.height=660;}
-// wallpaper: 10 local WebP images cycling daily. Compressed with mogrify -resize 1920x1920> -quality 80.
+// wallpaper: 10 local WebP images cycling daily. Compressed with mogrify -resize 2560x2560> -quality 82 (5 at native max below that).
 const WPs=['0wjlxx','1j3q91','43gv29','45vp75','48175o','4ywjdx','jx2zqy','lqrl5r','n66917','nex9do'].map(s=>`public/wallhaven-${s}.webp`);
 document.body.style.backgroundImage=`url("${WPs[Math.floor(Date.now()/86400000)%10]}")`;
 
