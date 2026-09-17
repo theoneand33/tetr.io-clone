@@ -487,12 +487,13 @@ function drawMenu(){
     {key:'cfg',md:{label:'SETTINGS',sub:'handling & keybindings',accent:'#8fa3ff'},icon:'CF',fn:()=>{cvs.width=innerWidth;cvs.height=innerHeight;state='config';}},
   ];
   const W=cvs.width,H=cvs.height;
-  const TOP=52,BOT=34,gap=10,n=rows.length;
-  const rh=Math.min(160,(H-TOP-BOT-(n+1)*gap)/n),rx=Math.max(140,W*0.13),rw=W-rx;
+  const TOP=60,BOT=34,gap=12,n=rows.length;
+  const rh=Math.max(56,Math.min(84,H*0.09)),rx=Math.max(180,W*0.20),rw=W-rx;
+  const y0=TOP+12;
   const x0=rx-40; // ponytail: hovered row extends left into the photo
   ctx.fillStyle='rgba(7,8,13,0.55)';ctx.fillRect(0,0,W,H); // even scrim so bars read
   rows.forEach((r,i)=>{
-    const y=TOP+gap+i*(rh+gap);
+    const y=y0+i*(rh+gap);
     menuHover[i]+=((mouseX>=x0&&mouseX<W&&mouseY>=y&&mouseY<y+rh?1:0)-menuHover[i])*0.18;
     const t=menuHover[i];
     const xt=rx-t*40,bw=rw+t*40;
