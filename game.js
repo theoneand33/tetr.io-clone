@@ -70,6 +70,9 @@ const keys={};
 let rebindAction=null;
 let clickZones=[];
 let needsDraw=true,lastState=state;
+const reducedMotionQuery=matchMedia('(prefers-reduced-motion: reduce)');
+let reducedMotion=reducedMotionQuery.matches;
+reducedMotionQuery.addEventListener('change',e=>{reducedMotion=e.matches;needsDraw=true;});
 let best={};
 let mouseX=-1,mouseY=-1; // ponytail: hover state via raw coords, no React state equivalent
 best=lsGet('webtris_best',{});
@@ -280,6 +283,7 @@ function update(dt){
   }
   function age(list,ttl){list.forEach(e=>e.t+=dt);return list.filter(e=>e.t<ttl);}
   flashes=age(flashes,160);lands=age(lands,150);drops=age(drops,70);shines=age(shines,260);
+  if(reducedMotion){flashes=[];lands=[];drops=[];shines=[];}
   spawnT+=dt;
   popups=age(popups,900);
 }
@@ -432,7 +436,7 @@ function draw(){
   for(const p of popups){
     const a=1-p.t/900;
     ctx.globalAlpha=a;
-    text(p.txt,BX+COLS*CELL/2,py-p.t/20,p.small?14:20,p.small?'#8fa3ff':'#ffd75e','center');
+    text(p.txt,BX+COLS*CELL/2,reducedMotion?py:py-p.t/20,p.small?14:20,p.small?'#8fa3ff':'#ffd75e','center');
     ctx.globalAlpha=1;
     py+=p.small?22:30;
   }
@@ -492,7 +496,8 @@ function drawMenu(){
   ctx.fillStyle='rgba(7,8,13,0.55)';ctx.fillRect(0,0,W,H); // even scrim so bars read
   rows.forEach((r,i)=>{
     const y=y0+i*(rh+gap);
-    menuHover[i]+=((mouseX>=x0&&mouseX<W&&mouseY>=y&&mouseY<y+rh?1:0)-menuHover[i])*0.18;
+    const hoverTarget=mouseX>=x0&&mouseX<W&&mouseY>=y&&mouseY<y+rh?1:0;
+    menuHover[i]=reducedMotion?hoverTarget:menuHover[i]+(hoverTarget-menuHover[i])*0.18;
     const t=menuHover[i];
     const xt=rx-t*40,bw=rw+t*40;
     ctx.save();
@@ -555,7 +560,8 @@ function drawConfig(){
   { // ponytail: BACK is a grey menu bar pinned to the left edge, extends right on hover
     const bw2=170,bh2=30,by=6,acc='#9aa1b5';
     const hov=mouseX>=0&&mouseX<bw2+40&&mouseY>=by&&mouseY<by+bh2;
-    backHover+=((hov?1:0)-backHover)*0.18;
+    const hoverTarget=hov?1:0;
+    backHover=reducedMotion?hoverTarget:backHover+(hoverTarget-backHover)*0.18;
     const t=backHover,bwH=bw2+t*40;
     ctx.save();
     ctx.shadowColor='rgba(0,0,0,0.6)';ctx.shadowBlur=16;
