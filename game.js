@@ -846,7 +846,7 @@ let last=performance.now();
 function loop(now){
   const dt=Math.min(50,now-last);last=now;
   update(dt);
-  const easing=state=='menu'?menuHover.some(v=>v>.001):state=='config'&&backHover>.001;
+  const easing=state=='menu'?menuHover.some(v=>v>.001&&v<.999):state=='config'&&backHover>.001&&backHover<.999;
   if(state=='play'||state!=lastState||needsDraw||easing){draw();needsDraw=false;}
   lastState=state;
   requestAnimationFrame(loop);
