@@ -1,18 +1,22 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
 <meta charset="utf-8">
-<title>webtris</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#07080d">
+<title>Webtris — Canvas Tetris</title>
 <link rel="stylesheet" href="style.css">
-
 </head>
 <body>
+<main id="game" aria-label="Webtris game">
+  <p id="game-help" class="visually-hidden">Use the arrow keys to move and soft drop, Z and X to rotate, Space to hard drop, C to hold, and Escape or Q to quit.</p>
+  <canvas id="c" width="600" height="660" tabindex="0" aria-describedby="game-help" aria-label="Webtris game board">Your browser does not support Canvas. Webtris requires a browser with Canvas support.</canvas>
+</main>
+<div id="quitbar" role="status" aria-live="polite">KEEP HOLDING TO QUIT</div>
 <script>
 const ids=['0wjlxx','1j3q91','43gv29','45vp75','48175o','4ywjdx','jx2zqy','lqrl5r','n66917','nex9do'];
 document.body.style.backgroundImage=`url("public/wallhaven-${ids[Math.floor(Date.now()/86400000)%ids.length]}.webp")`;
 </script>
-<canvas id="c" width="600" height="660"></canvas>
-<div id="quitbar">KEEP HOLDING TO QUIT</div>
 <script src="game.js"></script>
 <script src="bot.js"></script>
 </body>
