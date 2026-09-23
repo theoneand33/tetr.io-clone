@@ -22,9 +22,6 @@ const quitEl=document.getElementById('quitbar'); // ponytail: full-width hold-to
 // ponytail: menu fills the window so buttons reach the real screen edge; play stays 600x660 centered
 function goMenu(){state='menu';cvs.width=innerWidth;cvs.height=innerHeight;}
 function goPlay(){cvs.width=600;cvs.height=660;}
-// wallpaper: 10 local WebP images cycling daily. Compressed with mogrify -resize 2560x2560> -quality 82 (5 at native max below that).
-const WPs=['0wjlxx','1j3q91','43gv29','45vp75','48175o','4ywjdx','jx2zqy','lqrl5r','n66917','nex9do'].map(s=>`public/wallhaven-${s}.webp`);
-document.body.style.backgroundImage=`url("${WPs[Math.floor(Date.now()/86400000)%10]}")`;
 
 const SHAPES={
   I:{m:[[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],c:'#2fd4e8'},
@@ -72,6 +69,7 @@ let vs=null; // versus match state, set by startVs()
 const keys={};
 let rebindAction=null;
 let clickZones=[];
+let needsDraw=true,lastState=state;
 let best={};
 let mouseX=-1,mouseY=-1; // ponytail: hover state via raw coords, no React state equivalent
 best=lsGet('webtris_best',{});
@@ -781,6 +779,7 @@ function drawOver(){
 
 // --- input ---
 addEventListener('keydown',e=>{
+  needsDraw=true;
   if(Object.values(keybinds).includes(e.code))e.preventDefault();
   if(state=='menu'){
     const i=['Digit1','Digit2','Digit3','Digit4','Digit5','Numpad1','Numpad2','Numpad3','Numpad4','Numpad5'].indexOf(e.code)%5;
@@ -833,21 +832,25 @@ cvs.addEventListener('click',e=>{
   const mx=(e.clientX-r.left)*(cvs.width/r.width);
   const my=(e.clientY-r.top)*(cvs.height/r.height);
   for(const z of clickZones)
-    if(mx>=z.x&&mx<z.x+z.w&&my>=z.y&&my<z.y+z.h){z.fn(mx,my);return;}
+    if(mx>=z.x&&mx<z.x+z.w&&my>=z.y&&my<z.y+z.h){z.fn(mx,my);needsDraw=true;return;}
 });
 cvs.addEventListener('mousemove',e=>{
   const r=cvs.getBoundingClientRect();
   mouseX=(e.clientX-r.left)*(cvs.width/r.width);
   mouseY=(e.clientY-r.top)*(cvs.height/r.height);
+  needsDraw=true;
 });
-cvs.addEventListener('mouseleave',()=>{mouseX=mouseY=-1;});
+cvs.addEventListener('mouseleave',()=>{mouseX=mouseY=-1;needsDraw=true;});
 
 let last=performance.now();
 function loop(now){
   const dt=Math.min(50,now-last);last=now;
-  update(dt);draw();
+  update(dt);
+  const easing=state=='menu'?menuHover.some(v=>v>.001):state=='config'&&backHover>.001;
+  if(state=='play'||state!=lastState||needsDraw||easing){draw();needsDraw=false;}
+  lastState=state;
   requestAnimationFrame(loop);
 }
 goMenu(); // ponytail: menu fills window on first load so buttons sit at the real screen edge
-addEventListener('resize',()=>{if(state=='menu')goMenu();}); // keep buttons flush to edge on window resize
+addEventListener('resize',()=>{if(state=='menu')goMenu();needsDraw=true;}); // keep buttons flush to edge on window resize
 requestAnimationFrame(loop);

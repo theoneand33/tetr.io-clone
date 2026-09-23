@@ -7,6 +7,10 @@
 
 </head>
 <body>
+<script>
+const ids=['0wjlxx','1j3q91','43gv29','45vp75','48175o','4ywjdx','jx2zqy','lqrl5r','n66917','nex9do'];
+document.body.style.backgroundImage=`url("public/wallhaven-${ids[Math.floor(Date.now()/86400000)%ids.length]}.webp")`;
+</script>
 <canvas id="c" width="600" height="660"></canvas>
 <div id="quitbar">KEEP HOLDING TO QUIT</div>
 <script src="game.js"></script>
