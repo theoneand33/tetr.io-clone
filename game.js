@@ -12,9 +12,10 @@ let GRIDV=gp.grid??10, BGV=gp.board??80, SHADV=gp.shadow??40, ACTTX=gp.act||'ALL
 let COLORGHOST=gp.colorGhost??false, GRAYHOLD=gp.grayHold??true;
 function saveGp(){lsSet('webtris_gameplay',{grid:GRIDV,board:BGV,shadow:SHADV,act:ACTTX,colorGhost:COLORGHOST,grayHold:GRAYHOLD});}
 let openSec=null; // settings accordion, one open at a time
-const DEFAULT_KEYS={left:'ArrowLeft',right:'ArrowRight',softDrop:'ArrowDown',rotCCW:'KeyZ',rotCW:'KeyX',hardDrop:'Space',hold:'KeyC',retry:'KeyR',pause:'Escape',quit:'KeyQ'};
+const DEFAULT_KEYS={left:'ArrowLeft',right:'ArrowRight',softDrop:'ArrowDown',rotCCW:'KeyZ',rotCW:'KeyX',hardDrop:'Space',hold:'KeyC',retry:'KeyR',quit:'Escape'};
 let keybinds={};
 keybinds={...DEFAULT_KEYS,...lsGet('webtris_keys',{})};
+delete keybinds.pause;if(keybinds.quit=='KeyQ')keybinds.quit='Escape'; // ponytail: migrate pre-removal defaults
 // versus/blitz attack table (ponytail: standard modern versus, no all-spin/surge variants)
 const ATK={n:[0,1,2,4],ts:[0,2,4,6]},CMB=[0,1,1,2,2,3,3,4];
 const cvs=document.getElementById('c'), ctx=cvs.getContext('2d');
@@ -56,7 +57,7 @@ const MODES={
 const KEY_ACTIONS=[
   {id:'left',label:'Move Left'},{id:'right',label:'Move Right'},{id:'softDrop',label:'Soft Drop'},
   {id:'rotCCW',label:'Rotate CCW'},{id:'rotCW',label:'Rotate CW'},{id:'hardDrop',label:'Hard Drop'},
-  {id:'hold',label:'Hold'},{id:'retry',label:'Retry'},{id:'pause',label:'Pause'},{id:'quit',label:'Quit'},
+  {id:'hold',label:'Hold'},{id:'retry',label:'Retry'},{id:'quit',label:'Quit'},
 ];
 
 let board, bag, cur, hold, canHold, state='menu', mode=null;
@@ -254,8 +255,8 @@ function fmtTime(ms){
 
 function update(dt){
   if(state!='play')return;
-  // ponytail: ESC/Q never pause — holding either fills the quit bar while the run continues
-  if(keys[keybinds.pause]||keys[keybinds.quit]){quitHold+=dt;if(quitHold>=QUIT_HOLD){saveBest();goMenu();quitHold=0;return;}}
+  // ponytail: holding quit fills the bar while the run continues, no pause
+  if(keys[keybinds.quit]){quitHold+=dt;if(quitHold>=QUIT_HOLD){saveBest();goMenu();quitHold=0;return;}}
   time+=dt;
   if(mode=='ultra'&&time>=MODES.ultra.time)return finish();
   if(mode=='versus'&&vs){
@@ -597,9 +598,9 @@ function drawConfig(){
   };
   const PRESETS=[
     {n:'GUIDELINE',k:{...DEFAULT_KEYS}},
-    {n:'WASD',k:{left:'KeyA',right:'KeyD',softDrop:'KeyS',rotCCW:'KeyJ',rotCW:'KeyK',hardDrop:'Space',hold:'KeyL',retry:'KeyR',pause:'Escape',quit:'KeyQ'}},
+    {n:'WASD',k:{left:'KeyA',right:'KeyD',softDrop:'KeyS',rotCCW:'KeyJ',rotCW:'KeyK',hardDrop:'Space',hold:'KeyL',retry:'KeyR',quit:'Escape'}},
   ];
-  const CTRL_LABEL={left:'MOVE FALLING PIECE LEFT',right:'MOVE FALLING PIECE RIGHT',softDrop:'SOFT DROP',hardDrop:'HARD DROP',rotCCW:'ROTATE COUNTERCLOCKWISE',rotCW:'ROTATE CLOCKWISE',hold:'SWAP HOLD PIECE',retry:'RETRY GAME',pause:'PAUSE',quit:'FORFEIT GAME'};
+  const CTRL_LABEL={left:'MOVE FALLING PIECE LEFT',right:'MOVE FALLING PIECE RIGHT',softDrop:'SOFT DROP',hardDrop:'HARD DROP',rotCCW:'ROTATE COUNTERCLOCKWISE',rotCW:'ROTATE CLOCKWISE',hold:'SWAP HOLD PIECE',retry:'RETRY GAME',quit:'FORFEIT GAME'};
   const shadeBar=(x,y,w,h,acc,t)=>{ // main-menu bar shading for inner controls
     ctx.fillStyle='#10121a';ctx.fillRect(x,y,w,h);
     ctx.globalAlpha=0.22+0.18*t;ctx.fillStyle=acc;ctx.fillRect(x,y,w,h);ctx.globalAlpha=1;
@@ -796,11 +797,11 @@ addEventListener('keydown',e=>{
   if(state=='diff'){
     const i=['Digit1','Digit2','Digit3','Digit4','Digit5','Numpad1','Numpad2','Numpad3','Numpad4','Numpad5'].indexOf(e.code)%5;
     if(i>=0)startVs(i+1);
-    if(e.code==keybinds.pause)goMenu();
+    if(e.code=='Escape'||e.code==keybinds.quit)goMenu();
     return;
   }
   if(state=='config'){
-    if(e.code=='Escape'||e.code==keybinds.pause){if(rebindAction)rebindAction=null;else goMenu();}
+    if(e.code=='Escape'){if(rebindAction)rebindAction=null;else goMenu();}
     else if(rebindAction){
       keybinds[rebindAction]=e.code;
       lsSet('webtris_keys',keybinds);
@@ -810,7 +811,7 @@ addEventListener('keydown',e=>{
   }
   if(state=='over'){
     if(e.code==keybinds.retry)(mode=='versus'?startVs(vs.diff):startMode(mode));
-    if(e.code==keybinds.pause)goMenu();
+    if(e.code=='Escape'||e.code==keybinds.quit)goMenu();
     return;
   }
   keys[e.code]=true;
@@ -825,7 +826,7 @@ addEventListener('keydown',e=>{
 });
 addEventListener('keyup',e=>{
   keys[e.code]=false;
-  if(e.code==keybinds.pause||e.code==keybinds.quit)quitHold=0; // release cancels the quit fill, game never paused
+  if(e.code==keybinds.quit||e.code=='Escape')quitHold=0; // release cancels the quit fill, game never pauses
   if(e.code==keybinds.left&&moveDir==-1){
     if(keys[keybinds.right]){moveDir=1;dasT=0;arrT=0;tryMove(1,0);}else moveDir=0;
   }
