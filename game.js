@@ -596,10 +596,6 @@ function drawConfig(){
       if(!sel)clickZones.push({x:bx,y:y+24,w:sw,h:30,fn:()=>fn(o)});
     });
   };
-  const PRESETS=[
-    {n:'GUIDELINE',k:{...DEFAULT_KEYS}},
-    {n:'WASD',k:{left:'KeyA',right:'KeyD',softDrop:'KeyS',rotCCW:'KeyJ',rotCW:'KeyK',hardDrop:'Space',hold:'KeyL',retry:'KeyR',quit:'Escape'}},
-  ];
   const CTRL_LABEL={left:'MOVE FALLING PIECE LEFT',right:'MOVE FALLING PIECE RIGHT',softDrop:'SOFT DROP',hardDrop:'HARD DROP',rotCCW:'ROTATE COUNTERCLOCKWISE',rotCW:'ROTATE CLOCKWISE',hold:'SWAP HOLD PIECE',retry:'RETRY GAME',quit:'FORFEIT GAME'};
   const shadeBar=(x,y,w,h,acc,t)=>{ // main-menu bar shading for inner controls
     ctx.fillStyle='#10121a';ctx.fillRect(x,y,w,h);
@@ -632,20 +628,8 @@ function drawConfig(){
   };
   const body={
     controls(px,y,w){
-      ctx.fillStyle='rgba(13,16,26,0.88)';ctx.fillRect(px-14,y-8,w+28,56+10*30+16); // content well
-      const eq=JSON.stringify(keybinds);
-      const active=PRESETS.find(p=>JSON.stringify(p.k)==eq)?.n||'CUSTOM';
-      ctx.fillStyle='rgba(0,0,0,0.3)';ctx.fillRect(px,y,w,46); // preset strip
-      const tw=(w-36)/3;
-      [...PRESETS.map(p=>p.n),'CUSTOM'].forEach((n,i)=>{
-        const bx=px+12+i*(tw+6),sel=active==n;
-        const ph=mouseX>=bx&&mouseX<bx+tw&&mouseY>=y+7&&mouseY<y+39;
-        shadeBar(bx,y+7,tw,32,'#8fa3ff',(sel||ph)?1:0);
-        text(n,bx+tw/2,y+29,15,sel?'#dfe4f5':'#6f7794','center');
-        const p=PRESETS.find(p=>p.n==n);
-        if(p)clickZones.push({x:bx,y:y+7,w:tw,h:32,fn:()=>{keybinds={...p.k};lsSet('webtris_keys',keybinds);rebindAction=null;}});
-      });
-      let yy=y+56;
+      ctx.fillStyle='rgba(13,16,26,0.88)';ctx.fillRect(px-14,y-8,w+28,10*30+16); // content well
+      let yy=y;
       for(const a of KEY_ACTIONS){
         const chipW=120,cx=px+w-chipW;
         const hover=mouseX>=cx&&mouseX<cx+chipW&&mouseY>=yy&&mouseY<yy+24;
