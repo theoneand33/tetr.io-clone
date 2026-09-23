@@ -834,6 +834,12 @@ cvs.addEventListener('mousemove',e=>{
 cvs.addEventListener('mouseleave',()=>{mouseX=mouseY=-1;needsDraw=true;});
 
 let last=performance.now();
+// ponytail: rAF stops in a hidden tab, so tick update() on an interval to keep the run going
+setInterval(()=>{
+  if(!document.hidden||state!='play')return;
+  const now=performance.now(),dt=Math.min(2000,now-last);last=now;
+  update(dt);
+},250);
 function loop(now){
   const dt=Math.min(50,now-last);last=now;
   update(dt);
