@@ -4,7 +4,7 @@ let CELL=30, BX=150, BY=30; // mutable: versus mode uses a smaller layout
 const LOCK_DELAY=500, MAX_RESETS=15, QUIT_HOLD=900; // ms of held ESC to quit, tetr.io-style
 let DAS=110, ARR=25, SOFT=100;
 function lsGet(k,def){try{const v=JSON.parse(localStorage.getItem(k));return v??def}catch(e){}return def}
-function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch(e){}return false}
 const h=lsGet('webtris_handling',{});if(h.das)DAS=h.das;if(h.arr)ARR=h.arr;if(h.soft!=null)SOFT=h.soft;
 let VOL=lsGet('webtris_vol',80), MUTE=lsGet('webtris_mute',false);
 const gp=lsGet('webtris_gameplay',{}); // ponytail: one key for all gameplay visuals
@@ -15,16 +15,20 @@ let SKIN=SKINS.includes(gp.skin)?gp.skin:'CLASSIC';
 function saveGp(){lsSet('webtris_gameplay',{grid:GRIDV,board:BGV,shadow:SHADV,act:ACTTX,colorGhost:COLORGHOST,grayHold:GRAYHOLD,skin:SKIN});}
 // ponytail: FILE skin is a TETR.IO-format strip (Z L O S I J T + extras, 12 cells) loaded from a local file, no hosted assets
 const SKINCELL={Z:0,L:1,O:2,S:3,I:4,J:5,T:6,G:8};
-let skinImg=null, skinName=lsGet('webtris_skin_name','');
+let skinImg=null, skinName=lsGet('webtris_skin_name',''), skinErr='', skinTok=0;
+function setSkinImg(d){ // ponytail: token drops stale decodes so CLEAR wins any in-flight load
+  const tok=++skinTok, im=new Image();
+  im.onload=()=>{if(tok!=skinTok)return;skinImg=im;needsDraw=true;};
+  im.src=d;
+}
 function loadSkinFile(){
   skinImg=null;
   const d=lsGet('webtris_skin_file',null);
   if(!d)return;
-  const im=new Image();
-  im.onload=()=>{skinImg=im;needsDraw=true;};
-  im.src=d;
+  setSkinImg(d);
 }
 let openSec=null; // settings accordion, one open at a time
+let cfgScroll=0, cfgMax=0; // ponytail: settings scrolls on short viewports, BACK bar stays pinned
 const DEFAULT_KEYS={left:'ArrowLeft',right:'ArrowRight',softDrop:'ArrowDown',rotCCW:'KeyZ',rotCW:'KeyX',hardDrop:'Space',hold:'KeyC',retry:'KeyR',quit:'Escape'};
 let keybinds={};
 keybinds={...DEFAULT_KEYS,...lsGet('webtris_keys',{})};
@@ -36,11 +40,24 @@ const quitEl=document.getElementById('quitbar'); // ponytail: full-width hold-to
 const skinInput=document.getElementById('skinfile'); // ponytail: native file picker, settings UI is canvas-drawn so the input stays hidden
 skinInput.addEventListener('change',()=>{
   const f=skinInput.files[0];
+  skinInput.value='';
   if(!f)return;
   const r=new FileReader();
-  r.onload=()=>{lsSet('webtris_skin_file',r.result);skinName=f.name;lsSet('webtris_skin_name',skinName);loadSkinFile();};
+  r.onload=()=>{ // ponytail: decode-then-validate so bad files never reach storage or the UI name
+    const im=new Image();
+    im.onload=()=>{
+      const cw=im.width/12;
+      if(!(im.width>=12&&im.height>0&&Math.abs(cw-im.height)<=Math.max(2,im.height*0.1))){
+        skinErr='NOT A 12-CELL SKIN — FILE IGNORED';needsDraw=true;return;
+      }
+      if(lsSet('webtris_skin_file',r.result)){skinName=f.name;lsSet('webtris_skin_name',skinName);skinErr='';loadSkinFile();}
+      else{skinErr='SAVE FAILED (QUOTA?) — THIS SESSION ONLY';setSkinImg(r.result);}
+      needsDraw=true;
+    };
+    im.src=r.result;
+    im.onerror=()=>{skinErr='COULD NOT READ IMAGE';needsDraw=true;};
+  };
   r.readAsDataURL(f);
-  skinInput.value='';
 });
 loadSkinFile();
 // ponytail: menu fills the window so buttons reach the real screen edge; play stays 600x660 centered
@@ -320,8 +337,8 @@ function block(x,y,size,color,alpha=1,t){
   ctx.globalAlpha=alpha;
   const ci=t!=null?SKINCELL[t]:null;
   if(SKIN=='FILE'&&skinImg&&ci!=null){
-    const sw=skinImg.width/12;
-    ctx.drawImage(skinImg,ci*sw,0,sw,skinImg.height,x,y,size,size);
+    const st=skinImg.width/12, ch=skinImg.height; // ponytail: 31px stride, square height-sized crop skips the gutter
+    ctx.drawImage(skinImg,ci*st,0,ch,ch,x,y,size,size);
   }
   else{
   ctx.fillStyle='rgba(0,0,0,0.5)';ctx.fillRect(x,y,size,size);
@@ -700,8 +717,8 @@ function drawConfig(){
       segCtrl(px,y,w,'ACTION TEXT',['OFF','SOME','ALL'],ACTTX,v=>{ACTTX=v;saveGp();});
       segCtrl(px,y+64,w,'SKIN',SKINS,SKIN,v=>{SKIN=v;saveGp();if(v=='FILE')skinInput.click();});
       button(px+8,y+128,150,30,'LOAD SKIN FILE',()=>skinInput.click());
-      text((skinName||'no file loaded').slice(0,24),px+166,y+149,12,'#6b7288');
-      if(skinName)button(px+w-88,y+128,80,30,'CLEAR',()=>{try{localStorage.removeItem('webtris_skin_file')}catch(e){}skinName='';lsSet('webtris_skin_name','');skinImg=null;});
+      text((skinErr||skinName||'no file loaded').slice(0,28),px+166,y+149,12,skinErr?'#ef4a4a':'#6b7288');
+      if(skinName)button(px+w-88,y+128,80,30,'CLEAR',()=>{skinTok++;try{localStorage.removeItem('webtris_skin_file')}catch(e){}skinName='';skinErr='';lsSet('webtris_skin_name','');skinImg=null;});
       slider(px,y+168,w,{l:'GRID VISIBILITY',loL:'TRANSPARENT',hiL:'OPAQUE',g:()=>GRIDV,s:v=>GRIDV=v,lo:0,hi:100,st:1,fmt:v=>v+'%',save:saveGp});
       slider(px,y+224,w,{l:'BOARD VISIBILITY',loL:'TRANSPARENT',hiL:'OPAQUE',g:()=>BGV,s:v=>BGV=v,lo:0,hi:100,st:1,fmt:v=>v+'%',save:saveGp});
       slider(px,y+280,w,{l:'SHADOW VISIBILITY',loL:'TRANSPARENT',hiL:'OPAQUE',g:()=>SHADV,s:v=>SHADV=v,lo:0,hi:100,st:1,fmt:v=>v+'%',save:saveGp});
@@ -714,7 +731,7 @@ function drawConfig(){
     {id:'controls',label:'CONTROLS'},{id:'handling',label:'HANDLING'},
     {id:'volume',label:'VOLUME & AUDIO'},{id:'gameplay',label:'GAMEPLAY'},
   ];
-  let y=44;
+  let y=44-Math.min(cfgScroll,cfgMax);
   for(const s of SECS){
     const open=openSec==s.id;
     const hover=mouseX>=mx&&mouseX<mx+bw&&mouseY>=y&&mouseY<y+BH;
@@ -747,6 +764,7 @@ function drawConfig(){
   }
   text('esc - back',cx,y+22,12,'#6b7288','center');
   clickZones.push({x:cx-60,y:y+4,w:120,h:30,fn:()=>goMenu()});
+  cfgMax=Math.max(0,y+34-cvs.height);
 }
 function saveHand(){lsSet('webtris_handling',{das:DAS,arr:ARR,soft:SOFT});}
 // --- versus helpers ---
@@ -870,6 +888,12 @@ cvs.addEventListener('mousemove',e=>{
   needsDraw=true;
 });
 cvs.addEventListener('mouseleave',()=>{mouseX=mouseY=-1;needsDraw=true;});
+cvs.addEventListener('wheel',e=>{
+  if(state!='config')return;
+  e.preventDefault();
+  cfgScroll=Math.max(0,Math.min(cfgMax,cfgScroll+e.deltaY));
+  needsDraw=true;
+},{passive:false});
 
 let last=performance.now();
 // ponytail: rAF stops in a hidden tab, so tick update() on an interval to keep the run going
