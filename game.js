@@ -10,7 +10,20 @@ let VOL=lsGet('webtris_vol',80), MUTE=lsGet('webtris_mute',false);
 const gp=lsGet('webtris_gameplay',{}); // ponytail: one key for all gameplay visuals
 let GRIDV=gp.grid??10, BGV=gp.board??80, SHADV=gp.shadow??40, ACTTX=gp.act||'ALL';
 let COLORGHOST=gp.colorGhost??false, GRAYHOLD=gp.grayHold??true;
-function saveGp(){lsSet('webtris_gameplay',{grid:GRIDV,board:BGV,shadow:SHADV,act:ACTTX,colorGhost:COLORGHOST,grayHold:GRAYHOLD});}
+const SKINS=['CLASSIC','FILE'];
+let SKIN=SKINS.includes(gp.skin)?gp.skin:'CLASSIC';
+function saveGp(){lsSet('webtris_gameplay',{grid:GRIDV,board:BGV,shadow:SHADV,act:ACTTX,colorGhost:COLORGHOST,grayHold:GRAYHOLD,skin:SKIN});}
+// ponytail: FILE skin is a TETR.IO-format strip (Z L O S I J T + extras, 12 cells) loaded from a local file, no hosted assets
+const SKINCELL={Z:0,L:1,O:2,S:3,I:4,J:5,T:6,G:8};
+let skinImg=null, skinName=lsGet('webtris_skin_name','');
+function loadSkinFile(){
+  skinImg=null;
+  const d=lsGet('webtris_skin_file',null);
+  if(!d)return;
+  const im=new Image();
+  im.onload=()=>{skinImg=im;needsDraw=true;};
+  im.src=d;
+}
 let openSec=null; // settings accordion, one open at a time
 const DEFAULT_KEYS={left:'ArrowLeft',right:'ArrowRight',softDrop:'ArrowDown',rotCCW:'KeyZ',rotCW:'KeyX',hardDrop:'Space',hold:'KeyC',retry:'KeyR',quit:'Escape'};
 let keybinds={};
@@ -20,6 +33,16 @@ delete keybinds.pause;if(keybinds.quit=='KeyQ')keybinds.quit='Escape'; // ponyta
 const ATK={n:[0,1,2,4],ts:[0,2,4,6]},CMB=[0,1,1,2,2,3,3,4];
 const cvs=document.getElementById('c'), ctx=cvs.getContext('2d');
 const quitEl=document.getElementById('quitbar'); // ponytail: full-width hold-to-quit bar, DOM so it spans the screen
+const skinInput=document.getElementById('skinfile'); // ponytail: native file picker, settings UI is canvas-drawn so the input stays hidden
+skinInput.addEventListener('change',()=>{
+  const f=skinInput.files[0];
+  if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{lsSet('webtris_skin_file',r.result);skinName=f.name;lsSet('webtris_skin_name',skinName);loadSkinFile();};
+  r.readAsDataURL(f);
+  skinInput.value='';
+});
+loadSkinFile();
 // ponytail: menu fills the window so buttons reach the real screen edge; play stays 600x660 centered
 function goMenu(){state='menu';cvs.width=innerWidth;cvs.height=innerHeight;}
 function goPlay(){cvs.width=600;cvs.height=660;}
@@ -292,17 +315,24 @@ function update(dt){
 }
 
 // --- rendering ---
-function block(x,y,size,color,alpha=1){
-  // ponytail: glossy mino — dark edge, flat base, white top shine, dark bottom; no roundRect
+function block(x,y,size,color,alpha=1,t){
+  // ponytail: FILE slices the loaded strip per piece, falls back to glossy when empty; no image assets shipped
   ctx.globalAlpha=alpha;
+  const ci=t!=null?SKINCELL[t]:null;
+  if(SKIN=='FILE'&&skinImg&&ci!=null){
+    const sw=skinImg.width/12;
+    ctx.drawImage(skinImg,ci*sw,0,sw,skinImg.height,x,y,size,size);
+  }
+  else{
   ctx.fillStyle='rgba(0,0,0,0.5)';ctx.fillRect(x,y,size,size);
   ctx.fillStyle=color;ctx.fillRect(x+1,y+1,size-2,size-2);
   const ix=Math.max(2,size*0.09),iw=size-ix*2;
   ctx.fillStyle='rgba(255,255,255,0.30)';ctx.fillRect(x+ix,y+ix,iw,iw*0.42);
   ctx.fillStyle='rgba(0,0,0,0.22)';ctx.fillRect(x+ix,y+size-ix-iw*0.26,iw,iw*0.26);
+  }
   ctx.globalAlpha=1;
 }
-function cell(px,py,color,alpha=1){block(BX+px*CELL,BY+(py-HID)*CELL,CELL,color,alpha);}
+function cell(px,py,color,alpha=1,t){block(BX+px*CELL,BY+(py-HID)*CELL,CELL,color,alpha,t);}
 function sideBox(x,y,w,h,cut,corner){ // ponytail: attached box with one chamfered outer corner
   ctx.beginPath();
   if(corner=='bl'){ctx.moveTo(x,y);ctx.lineTo(x+w,y);ctx.lineTo(x+w,y+h);ctx.lineTo(x+cut,y+h);ctx.lineTo(x,y+h-cut);}
@@ -314,7 +344,7 @@ function sideBox(x,y,w,h,cut,corner){ // ponytail: attached box with one chamfer
 }
 function mini(t,cx,cy,size,alpha=1){
   const m=SHAPES[t].m,n=m.length,ox=cx-n*size/2,oy=cy-n*size/2;
-  for(let y=0;y<n;y++)for(let x=0;x<n;x++)if(m[y][x])block(ox+x*size,oy+y*size,size,SHAPES[t].c,alpha);
+  for(let y=0;y<n;y++)for(let x=0;x<n;x++)if(m[y][x])block(ox+x*size,oy+y*size,size,SHAPES[t].c,alpha,t);
 }
 function text(str,x,y,size=14,color='#cfd3e0',align='left'){
   ctx.font='700 '+size+'px "Space Grotesk",ui-monospace,monospace';
@@ -366,7 +396,7 @@ function draw(){
   for(let x=1;x<COLS;x++){ctx.beginPath();ctx.moveTo(BX+x*CELL,BY);ctx.lineTo(BX+x*CELL,BY+ROWS*CELL);ctx.stroke();}
   for(let y=1;y<ROWS;y++){ctx.beginPath();ctx.moveTo(BX,BY+y*CELL);ctx.lineTo(BX+COLS*CELL,BY+y*CELL);ctx.stroke();}
   ctx.lineWidth=2;ctx.strokeStyle='#e8ebf5';ctx.strokeRect(BX-1,BY-1,COLS*CELL+2,ROWS*CELL+2);
-  for(let y=HID;y<ROWS+HID;y++)for(let x=0;x<COLS;x++)if(board[y][x])cell(x,y,SHAPES[board[y][x]].c);
+  for(let y=HID;y<ROWS+HID;y++)for(let x=0;x<COLS;x++)if(board[y][x])cell(x,y,SHAPES[board[y][x]].c,1,board[y][x]);
   for(const l of lands){
     const a=1-l.t/150;
     ctx.fillStyle='rgba(255,255,255,'+(a*0.5)+')';
@@ -394,7 +424,7 @@ function draw(){
     const off=grounded()?0:Math.min(gravAcc/iv,1);
     const fa=Math.min(1,spawnT/120); // spawn fade-in
     for(let y=0;y<cur.m.length;y++)for(let x=0;x<cur.m[y].length;x++)
-      if(cur.m[y][x])cell(cur.x+x,cur.y+off+y,SHAPES[cur.t].c,fa);
+      if(cur.m[y][x])cell(cur.x+x,cur.y+off+y,SHAPES[cur.t].c,fa,cur.t);
     ctx.restore();
     ctx.save();ctx.beginPath();ctx.rect(BX,BY,COLS*CELL,ROWS*CELL);ctx.clip(); // hard-drop white shine
     for(const s of shines){
@@ -666,14 +696,18 @@ function drawConfig(){
       return 56+32+12;
     },
     gameplay(px,y,w){
-      ctx.fillStyle='rgba(13,16,26,0.88)';ctx.fillRect(px-14,y-8,w+28,64+3*56+2*32+12);
+      ctx.fillStyle='rgba(13,16,26,0.88)';ctx.fillRect(px-14,y-8,w+28,168+3*56+2*32+12);
       segCtrl(px,y,w,'ACTION TEXT',['OFF','SOME','ALL'],ACTTX,v=>{ACTTX=v;saveGp();});
-      slider(px,y+64,w,{l:'GRID VISIBILITY',loL:'TRANSPARENT',hiL:'OPAQUE',g:()=>GRIDV,s:v=>GRIDV=v,lo:0,hi:100,st:1,fmt:v=>v+'%',save:saveGp});
-      slider(px,y+120,w,{l:'BOARD VISIBILITY',loL:'TRANSPARENT',hiL:'OPAQUE',g:()=>BGV,s:v=>BGV=v,lo:0,hi:100,st:1,fmt:v=>v+'%',save:saveGp});
-      slider(px,y+176,w,{l:'SHADOW VISIBILITY',loL:'TRANSPARENT',hiL:'OPAQUE',g:()=>SHADV,s:v=>SHADV=v,lo:0,hi:100,st:1,fmt:v=>v+'%',save:saveGp});
-      checkRow(px,y+232,w,'COLORED SHADOW PIECE',COLORGHOST,()=>{COLORGHOST=!COLORGHOST;saveGp();});
-      checkRow(px,y+264,w,'GRAY OUT LOCKED HOLD PIECE',GRAYHOLD,()=>{GRAYHOLD=!GRAYHOLD;saveGp();});
-      return 64+3*56+2*32+12;
+      segCtrl(px,y+64,w,'SKIN',SKINS,SKIN,v=>{SKIN=v;saveGp();if(v=='FILE')skinInput.click();});
+      button(px+8,y+128,150,30,'LOAD SKIN FILE',()=>skinInput.click());
+      text((skinName||'no file loaded').slice(0,24),px+166,y+149,12,'#6b7288');
+      if(skinName)button(px+w-88,y+128,80,30,'CLEAR',()=>{try{localStorage.removeItem('webtris_skin_file')}catch(e){}skinName='';lsSet('webtris_skin_name','');skinImg=null;});
+      slider(px,y+168,w,{l:'GRID VISIBILITY',loL:'TRANSPARENT',hiL:'OPAQUE',g:()=>GRIDV,s:v=>GRIDV=v,lo:0,hi:100,st:1,fmt:v=>v+'%',save:saveGp});
+      slider(px,y+224,w,{l:'BOARD VISIBILITY',loL:'TRANSPARENT',hiL:'OPAQUE',g:()=>BGV,s:v=>BGV=v,lo:0,hi:100,st:1,fmt:v=>v+'%',save:saveGp});
+      slider(px,y+280,w,{l:'SHADOW VISIBILITY',loL:'TRANSPARENT',hiL:'OPAQUE',g:()=>SHADV,s:v=>SHADV=v,lo:0,hi:100,st:1,fmt:v=>v+'%',save:saveGp});
+      checkRow(px,y+336,w,'COLORED SHADOW PIECE',COLORGHOST,()=>{COLORGHOST=!COLORGHOST;saveGp();});
+      checkRow(px,y+368,w,'GRAY OUT LOCKED HOLD PIECE',GRAYHOLD,()=>{GRAYHOLD=!GRAYHOLD;saveGp();});
+      return 168+3*56+2*32+12;
     },
   };
   const SECS=[
@@ -745,9 +779,9 @@ function drawBot(g){
   ctx.fillStyle='rgba(0,0,0,'+(BGV/100)+')';ctx.fillRect(bx,BY,COLS*CELL,ROWS*CELL);
   ctx.lineWidth=2;ctx.strokeStyle='#e8ebf5';ctx.strokeRect(bx-1,BY-1,COLS*CELL+2,ROWS*CELL+2);
   for(let y=HID;y<ROWS+HID;y++)for(let x=0;x<COLS;x++)
-    if(g.board[y][x])block(bx+x*CELL,BY+(y-HID)*CELL,CELL,SHAPES[g.board[y][x]].c);
+    if(g.board[y][x])block(bx+x*CELL,BY+(y-HID)*CELL,CELL,SHAPES[g.board[y][x]].c,1,g.board[y][x]);
   if(g.cur)for(let y=0;y<g.cur.m.length;y++)for(let x=0;x<g.cur.m[y].length;x++)
-    if(g.cur.m[y][x]&&g.cur.y+y>=HID)block(bx+(g.cur.x+x)*CELL,BY+(g.cur.y+y-HID)*CELL,CELL,SHAPES[g.cur.t].c);
+    if(g.cur.m[y][x]&&g.cur.y+y>=HID)block(bx+(g.cur.x+x)*CELL,BY+(g.cur.y+y-HID)*CELL,CELL,SHAPES[g.cur.t].c,1,g.cur.t);
 }
 function drawQuitBar(){
   // ponytail: 48px min so the text always sits on the bar, up to 18% of screen height

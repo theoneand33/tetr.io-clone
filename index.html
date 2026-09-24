@@ -13,6 +13,7 @@
   <canvas id="c" width="600" height="660" tabindex="0" aria-describedby="game-help" aria-label="Webtris game board">Your browser does not support Canvas. Webtris requires a browser with Canvas support.</canvas>
 </main>
 <div id="quitbar" role="status" aria-live="polite">KEEP HOLDING TO QUIT</div>
+<input type="file" id="skinfile" accept="image/*" hidden>
 <script>
 const ids=['0wjlxx','1j3q91','43gv29','45vp75','48175o','4ywjdx','jx2zqy','lqrl5r','n66917','nex9do'];
 document.body.style.backgroundImage=`url("public/wallhaven-${ids[Math.floor(Date.now()/86400000)%ids.length]}.webp")`;
