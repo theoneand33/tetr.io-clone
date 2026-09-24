@@ -65,7 +65,7 @@ let menuHover=[0,0,0,0,0,0]; // per-row glow fade (0→1)
 let backHover=0; // settings BACK bar uses the same menu hover animation
 let lines, score, level, combo, b2b, pieces, time, gravAcc, lockT, resets, tspinFlag;
 let flashes=[], popups=[], lands=[], drops=[], shines=[], spawnT=0;
-let moveDir=0, dasT=0, arrT=0, prevIv=0, quitHold=0;
+let moveDir=0, dasT=0, arrT=0, prevIv=0, quitHold=0, dropDip=0;
 let vs=null; // versus match state, set by startVs()
 const keys={};
 let rebindAction=null;
@@ -73,7 +73,7 @@ let clickZones=[];
 let needsDraw=true,lastState=state;
 const reducedMotionQuery=matchMedia('(prefers-reduced-motion: reduce)');
 let reducedMotion=reducedMotionQuery.matches;
-reducedMotionQuery.addEventListener('change',e=>{reducedMotion=e.matches;needsDraw=true;});
+reducedMotionQuery.addEventListener('change',e=>{reducedMotion=e.matches;if(reducedMotion)dropDip=0;needsDraw=true;});
 let best={};
 let mouseX=-1,mouseY=-1; // ponytail: hover state via raw coords, no React state equivalent
 best=lsGet('webtris_best',{});
@@ -125,7 +125,7 @@ function startMode(m){
   bag=[];refill(bag);
   hold=null;canHold=true;
   lines=0;score=0;level=1;combo=-1;b2b=0;pieces=0;time=0;
-  flashes=[];popups=[];lands=[];drops=[];shines=[];
+  flashes=[];popups=[];lands=[];drops=[];shines=[];dropDip=0;
   quitHold=0; // fresh run never inherits a stale quit fill
   spawn();state='play';goPlay();
 }
@@ -152,6 +152,7 @@ function rotate(dir){
   }
 }
 function hardDrop(){
+  if(!reducedMotion)dropDip=5;
   let d=0;
   const sy=cur.y;
   while(!collide(board,cur.m,cur.x,cur.y+1)){cur.y++;d++;}
@@ -254,6 +255,7 @@ function fmtTime(ms){
 }
 
 function update(dt){
+  dropDip=Math.max(0,dropDip-dt*.07);if(reducedMotion)dropDip=0;
   if(state!='play')return;
   // ponytail: holding quit fills the bar while the run continues, no pause
   if(keys[keybinds.quit]){quitHold+=dt;if(quitHold>=QUIT_HOLD){saveBest();goMenu();quitHold=0;return;}}
@@ -357,6 +359,7 @@ function draw(){
   if(state=='config'){drawConfig();return;}
   if(state=='diff'){drawDiff();return;}
   // ponytail: cursor set once at end of draw() based on clickZones, not per-state
+  ctx.save();ctx.translate(0,dropDip);
   // board
   ctx.fillStyle='rgba(0,0,0,'+(BGV/100)+')';ctx.fillRect(BX,BY,COLS*CELL,ROWS*CELL);
   ctx.lineWidth=1;ctx.strokeStyle='rgba(255,255,255,'+(GRIDV/100)+')';
@@ -441,6 +444,7 @@ function draw(){
     ctx.globalAlpha=1;
     py+=p.small?22:30;
   }
+  ctx.restore();
   if(state=='over')drawOver();
 }
 const GLYPH={
@@ -843,7 +847,7 @@ setInterval(()=>{
 function loop(now){
   const dt=Math.min(50,now-last);last=now;
   update(dt);
-  const easing=state=='menu'?menuHover.some(v=>v>.001&&v<.999):state=='config'&&backHover>.001&&backHover<.999;
+  const easing=(state=='menu'?menuHover.some(v=>v>.001&&v<.999):state=='config'&&backHover>.001&&backHover<.999)||dropDip>0;
   if(state=='play'||state!=lastState||needsDraw||easing){draw();needsDraw=false;}
   lastState=state;
   requestAnimationFrame(loop);
